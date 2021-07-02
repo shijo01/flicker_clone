@@ -2,6 +2,7 @@ package com.flicker.sampleapp.repository
 
 import android.util.Log
 import com.flicker.sampleapp.domain.model.Photo
+import com.flicker.sampleapp.network.CustomNetworkCall
 import com.flicker.sampleapp.network.FlickerPhotoService
 import com.flicker.sampleapp.network.GenericNetworkResponse
 import com.flicker.sampleapp.network.model.PhotoDtoMapper
@@ -19,18 +20,25 @@ class FlickerPhotoRepositoryImpl(
         text: String,
         page: Int
     ): GenericNetworkResponse<List<Photo>> {
-        return GenericNetworkResponse.Success(
-            photoDtoMapper.toDomainList(
-                photoService.search(
-                    method,
-                    apiKey,
-                    text,
-                    format,
-                    noJsonCallback,
-                    perPage,
-                    page
-                ).photoSearchResponse.photos
+
+        val response = CustomNetworkCall.safeApiCall {
+            photoService.search(
+                method,
+                apiKey,
+                text,
+                format,
+                noJsonCallback,
+                perPage,
+                page
             )
-        )
+        }
+        return when (response) {
+            is GenericNetworkResponse.Success -> {
+                GenericNetworkResponse.Success(photoDtoMapper.toDomainList(response.value.photoSearchResponse.photos))
+            }
+            is GenericNetworkResponse.GenericError -> {
+                response
+            }
+        }
     }
 }

@@ -23,18 +23,24 @@ import com.airbnb.lottie.compose.rememberLottieAnimationState
 import com.flicker.sampleapp.R
 
 @Composable
-fun PhotoNotFoundView() {
+fun PhotoNotFoundView(
+    error: Error = Error.NoResultFound
+) {
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(color = Color.White)
+            .background(color = MaterialTheme.colors.background)
     ) {
         ConstraintLayout(
             modifier = Modifier.fillMaxSize(),
             constraintSet = decoupledConstraints()
         ) {
             val animationSpec = remember {
-                LottieAnimationSpec.RawRes(R.raw.not_found)
+                when (error) {
+                    is Error.NoInternetConnection -> LottieAnimationSpec.RawRes(R.raw.error)
+                    is Error.NoResultFound -> LottieAnimationSpec.RawRes(R.raw.not_found)
+                }
+
             }
             val animationState =
                 rememberLottieAnimationState(autoPlay = true, repeatCount = Integer.MAX_VALUE)
@@ -47,14 +53,18 @@ fun PhotoNotFoundView() {
                     .layoutId("lottieAnimationView")
             )
             Text(
-                text = "No photos found for the searched keyword",
-                modifier = Modifier.layoutId("textMessage").padding(horizontal = 24.dp),
+                text = when (error) {
+                    is Error.NoResultFound -> "No photos found for the searched keyword!"
+                    is Error.NoInternetConnection -> "No internet connection!"
+                },
+                modifier = Modifier
+                    .layoutId("textMessage")
+                    .padding(horizontal = 24.dp),
                 style = MaterialTheme.typography.h6,
                 color = MaterialTheme.colors.primary,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center
             )
-
         }
     }
 }

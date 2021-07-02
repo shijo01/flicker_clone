@@ -17,6 +17,8 @@ import com.flicker.sampleapp.presentation.components.SearchAppBar
 import com.flicker.sampleapp.presentation.ui.photo_list.PhotoListEvent.NewSearchEvent
 import com.flicker.sampleapp.ui.theme.ComposeTheme
 import com.flicker.sampleapp.presentation.BaseApplication
+import com.flicker.sampleapp.presentation.components.Error
+import com.flicker.sampleapp.presentation.components.PhotoNotFoundView
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -51,7 +53,7 @@ class PhotoListFragment : Fragment() {
                         }
 
                         PhotoList(
-                            isLoading = viewModel.loading.value,
+                            apiState = viewModel.apiState.value,
                             photos = viewModel.photos.value,
                             onChangePhotoScrollPosition = {
                                 viewModel.onChangePhotoScrollPosition(

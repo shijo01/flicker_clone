@@ -1,6 +1,5 @@
 package com.flicker.sampleapp.presentation.ui.photo_list
 
-import android.util.Log
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.hilt.Assisted
@@ -9,14 +8,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.flicker.sampleapp.domain.model.Photo
 import com.flicker.sampleapp.network.GenericNetworkResponse
-import com.flicker.sampleapp.presentation.ui.photo_list.PhotoListEvent.*
+import com.flicker.sampleapp.presentation.components.Error
+import com.flicker.sampleapp.presentation.ui.photo_list.PhotoListEvent.NewSearchEvent
+import com.flicker.sampleapp.presentation.ui.photo_list.PhotoListEvent.NextPageEvent
+import com.flicker.sampleapp.presentation.ui.photo_list.PhotoListEvent.RestoreStateEvent
 import com.flicker.sampleapp.repository.FlickerPhotoRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.lang.Exception
 import javax.inject.Inject
-import javax.inject.Named
 
 const val PAGE_SIZE = 30
 
@@ -31,10 +31,11 @@ class PhotoListViewModel @Inject constructor(
     @Assisted private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     val photos: MutableState<List<Photo>> = mutableStateOf(listOf())
-    val query: MutableState<String> = mutableStateOf("nature")
+    val query: MutableState<String> = mutableStateOf("Nature")
+    val error: MutableState<Error?> = mutableStateOf(null)
+    val apiState: MutableState<PhotoListState> = mutableStateOf(PhotoListState.Loading)
     val selectedCategory: MutableState<PhotoCategory?> = mutableStateOf(null)
     private var selectedCategoryPosition: Int = 0
-    val loading = mutableStateOf(false)
     val page = mutableStateOf(1)
     private var photoListScrollPosition = 0
 
@@ -62,26 +63,22 @@ class PhotoListViewModel @Inject constructor(
 
     fun onEventTriggered(event: PhotoListEvent) {
         viewModelScope.launch {
-            try {
-                when (event) {
-                    is NewSearchEvent -> {
-                        newSearch()
-                    }
-                    is NextPageEvent -> {
-                        nextPage()
-                    }
-                    is RestoreStateEvent -> {
-                        restoreState()
-                    }
+            when (event) {
+                is NewSearchEvent -> {
+                    newSearch()
                 }
-            } catch (e: Exception) {
-                Log.e("PHOTO_LIST", e.toString())
+                is NextPageEvent -> {
+                    nextPage()
+                }
+                is RestoreStateEvent -> {
+                    restoreState()
+                }
             }
         }
     }
 
     private suspend fun restoreState() {
-        loading.value = true
+        apiState.value = PhotoListState.Loading
         val results = mutableListOf<Photo>()
         for (p in 1..page.value) {
             val result = photoRepository.search(
@@ -91,20 +88,19 @@ class PhotoListViewModel @Inject constructor(
             when (result) {
                 is GenericNetworkResponse.Success -> {
                     results.addAll(result.value)
+                    apiState.value = PhotoListState.Success()
                 }
                 is GenericNetworkResponse.GenericError -> {
+                    apiState.value = PhotoListState.Error(Error.NoInternetConnection)
                 }
             }
         }
         photos.value = results
-        loading.value = false
     }
 
     private suspend fun newSearch() {
-        loading.value = true
+        apiState.value = PhotoListState.Loading
         resetSearchState()
-        delay(2000)
-        Log.e("FPHOTO", "init")
         val result = photoRepository.search(
             query.value,
             1
@@ -112,20 +108,19 @@ class PhotoListViewModel @Inject constructor(
         when (result) {
             is GenericNetworkResponse.Success -> {
                 photos.value = result.value
+                apiState.value = PhotoListState.Success()
             }
             is GenericNetworkResponse.GenericError -> {
-
+                apiState.value = PhotoListState.Error(Error.NoInternetConnection)
             }
         }
-        loading.value = false
-        Log.e("FPHOTO", result.toString())
     }
 
     private suspend fun nextPage() {
         if (photoListScrollPosition + 1 >= page.value * PAGE_SIZE) {
-            loading.value = true
             incrementPage()
             //just to see the progressbar
+            apiState.value = PhotoListState.Success(true)
             delay(1000)
             if (page.value > 1) {
                 val result = photoRepository.search(
@@ -135,13 +130,13 @@ class PhotoListViewModel @Inject constructor(
                 when (result) {
                     is GenericNetworkResponse.Success -> {
                         appendPhotos(result.value)
+                        apiState.value = PhotoListState.Success()
                     }
                     is GenericNetworkResponse.GenericError -> {
-
+                        apiState.value = PhotoListState.Error(Error.NoInternetConnection)
                     }
                 }
             }
-            loading.value = false
         }
     }
 
